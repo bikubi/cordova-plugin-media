@@ -395,7 +395,10 @@ BOOL keepAvAudioSessionAlwaysActive = NO;
                         [avPlayer setRate:customRate];
                     } else {
                         NSLog(@"Playing stream with AVPlayer & default rate");
+                        // enable live/infite streams over http
                         avPlayer.automaticallyWaitsToMinimizeStalling = true;
+                        // enable idling/pre-connected AirPlay utilisation
+                        [avPlayer setAllowsExternalPlayback:NO];
                         [avPlayer play];
                     }
 
