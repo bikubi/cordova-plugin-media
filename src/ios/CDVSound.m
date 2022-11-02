@@ -29,7 +29,9 @@
 
 BOOL keepAvAudioSessionAlwaysActive = NO;
 
-@synthesize soundCache, avSession, currMediaId, statusCallbackId;
+static NSString *audioStateObserverCtx = @"CordovaMediaAudioState";
+
+@synthesize soundCache, avSession, currMediaId, statusCallbackId, avPlayer;
 
 -(void) pluginInitialize
 {
@@ -261,7 +263,7 @@ BOOL keepAvAudioSessionAlwaysActive = NO;
 
             // Subscribe to the AVPlayerItem's PlaybackStalledNotification notification.
             [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(itemStalledPlaying:) name:AVPlayerItemPlaybackStalledNotification object:playerItem];
-
+          
             // Pass the AVPlayerItem to a new player
             avPlayer = [[AVPlayer alloc] initWithPlayerItem:playerItem];
 
@@ -270,6 +272,12 @@ BOOL keepAvAudioSessionAlwaysActive = NO;
             if ([NSProcessInfo.processInfo isOperatingSystemAtLeastVersion:(NSOperatingSystemVersion){10,0,0}]) {
                 avPlayer.automaticallyWaitsToMinimizeStalling = NO;
             }
+            
+            [avPlayer addObserver:self forKeyPath:@"status" options:0 context:&audioStateObserverCtx];
+            [avPlayer.currentItem addObserver:self forKeyPath:@"timedMetadata" options:0 context:&audioStateObserverCtx];
+            [avPlayer.currentItem addObserver:self forKeyPath:@"status" options:0 context:&audioStateObserverCtx];
+            [avPlayer.currentItem addObserver:self forKeyPath:@"rate" options:0 context:&audioStateObserverCtx];
+            self.avPlayer = avPlayer;
         }
 
         self.currMediaId = mediaId;
@@ -837,6 +845,10 @@ BOOL keepAvAudioSessionAlwaysActive = NO;
 -(void)itemStalledPlaying:(NSNotification *) notification {
     // Will be called when playback stalls due to buffer empty
     NSLog(@"Stalled playback");
+    NSString* errMsg = @"stalled_playback";
+    NSString* mediaId = self.currMediaId;
+    [self onStatus:MEDIA_ERROR mediaId:mediaId param:
+     [self createAbortError:errMsg]];
 }
 
 - (void)onMemoryWarning
@@ -865,10 +877,50 @@ BOOL keepAvAudioSessionAlwaysActive = NO;
     [super onMemoryWarning];
 }
 
+- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary<NSKeyValueChangeKey,id> *)change context:(void *)context
+{
+    if (context == &audioStateObserverCtx) {
+        AVPlayer *player = nil;
+        AVPlayerItem *playeritem = nil;
+        NSString *mediaId = self.currMediaId;
+        if ([object isKindOfClass:[AVPlayer class]]) {
+            player = (AVPlayer *)object;
+            // mediaId = player.mediaId;
+        } else if ([object isKindOfClass:[AVPlayerItem class]]) {
+            playeritem = (AVPlayerItem *)object;
+        }
+        NSLog(@"KVO keyPath %@", keyPath);
+        if ([playeritem isEqual:self.avPlayer.currentItem]) {
+            NSLog(@"KVO playeritem keyPath %@", keyPath);
+            if ([keyPath isEqualToString:@"status"]) {
+                // TODO check playeritem.status for AVPlayerItemStatusReadyToPlay, ...StatusUnknown, ...StatusFailed, do something
+            }
+            if ([keyPath isEqualToString:@"timedMetadata"]) {
+                AVMetadataItem *metadataitem;
+                for (metadataitem in playeritem.timedMetadata) {
+                    NSLog(@"timedMetadata %@", metadataitem.stringValue);
+                    // lazily preformatted/quoted for jseval FIXME
+                    NSString* paramv = [NSString stringWithFormat:@"\"%@\"", metadataitem.stringValue];
+                    [self onStatus:MEDIA_META mediaId:mediaId param:paramv];
+                }
+            }
+        }
+        if ([player isEqual:self.avPlayer]) {
+            NSLog(@"KVO player keyPath %@", keyPath);
+            if ([keyPath isEqualToString:@"status"]) {
+                // TODO
+            }
+        }
+    }
 
+}
 - (void)dealloc
 {
     [[self soundCache] removeAllObjects];
+    [self.avPlayer removeObserver:self forKeyPath:@"status"];
+    [self.avPlayer.currentItem removeObserver:self forKeyPath:@"timedMetadata"];
+    [self.avPlayer.currentItem removeObserver:self forKeyPath:@"status"];
+    [self.avPlayer.currentItem removeObserver:self forKeyPath:@"rate"];
 }
 
 - (void)onReset
@@ -955,6 +1007,7 @@ BOOL keepAvAudioSessionAlwaysActive = NO;
 - (void)onStatus:(CDVMediaMsg)what mediaId:(NSString*)mediaId param:(NSObject*)param
 {
     if (self.statusCallbackId!=nil) { //new way, android,windows compatible
+        NSLog(@"onStatus %@ %@", @(what), param);
         NSMutableDictionary* status=[NSMutableDictionary dictionary];
         status[@"msgType"] = @(what);
         //in the error case contains a dict with "code" and "message"
@@ -975,6 +1028,7 @@ BOOL keepAvAudioSessionAlwaysActive = NO;
         NSString* jsString = [NSString stringWithFormat:@"%@(\"%@\",%d,%@);",
               @"cordova.require('cordova-plugin-media.Media').onStatus",
               mediaId, (int)what, param];
+        NSLog(@"onStatus %d %@", (int)what, param);
         [self.commandDelegate evalJs:jsString];
     }
 }

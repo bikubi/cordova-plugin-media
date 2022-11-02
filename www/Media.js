@@ -57,6 +57,7 @@ Media.MEDIA_STATE = 1;
 Media.MEDIA_DURATION = 2;
 Media.MEDIA_POSITION = 3;
 Media.MEDIA_ERROR = 9;
+Media.MEDIA_META = 20;
 
 // Media states
 Media.MEDIA_NONE = 0;
@@ -140,6 +141,20 @@ Media.prototype.getCurrentPosition = function (success, fail) {
         fail,
         'Media',
         'getCurrentPositionAudio',
+        [this.id]
+    );
+};
+
+Media.prototype.getCurrentRate = function (success, fail) {
+    var me = this;
+    exec(
+        function (p) {
+            me._rate = p;
+            success(p);
+        },
+        fail,
+        'Media',
+        'getCurrentRate',
         [this.id]
     );
 };
@@ -231,6 +246,7 @@ Media.prototype.getCurrentAmplitude = function (success, fail) {
  */
 Media.onStatus = function (id, msgType, value) {
     var media = mediaObjects[id];
+    console.log('Media.onStatus x', id, msgType, value);
 
     if (media) {
         switch (msgType) {
@@ -254,6 +270,12 @@ Media.onStatus = function (id, msgType, value) {
             break;
         case Media.MEDIA_POSITION:
             media._position = Number(value);
+            break;
+        case Media.MEDIA_META:
+            console.log('Media.onStatus MEDIA_META, value', value);
+            if (media.statusCallback) {
+                media.statusCallback(Media.MEDIA_META, value);
+            }
             break;
         default:
             if (console.error) {
