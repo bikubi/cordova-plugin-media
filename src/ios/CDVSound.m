@@ -273,10 +273,7 @@ static NSString *audioStateObserverCtx = @"CordovaMediaAudioState";
                 avPlayer.automaticallyWaitsToMinimizeStalling = NO;
             }
             
-            [avPlayer addObserver:self forKeyPath:@"status" options:0 context:&audioStateObserverCtx];
             [avPlayer.currentItem addObserver:self forKeyPath:@"timedMetadata" options:0 context:&audioStateObserverCtx];
-            [avPlayer.currentItem addObserver:self forKeyPath:@"status" options:0 context:&audioStateObserverCtx];
-            [avPlayer.currentItem addObserver:self forKeyPath:@"rate" options:0 context:&audioStateObserverCtx];
             self.avPlayer = avPlayer;
         }
 
@@ -880,21 +877,14 @@ static NSString *audioStateObserverCtx = @"CordovaMediaAudioState";
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary<NSKeyValueChangeKey,id> *)change context:(void *)context
 {
     if (context == &audioStateObserverCtx) {
-        AVPlayer *player = nil;
         AVPlayerItem *playeritem = nil;
         NSString *mediaId = self.currMediaId;
-        if ([object isKindOfClass:[AVPlayer class]]) {
-            player = (AVPlayer *)object;
-            // mediaId = player.mediaId;
-        } else if ([object isKindOfClass:[AVPlayerItem class]]) {
+        if ([object isKindOfClass:[AVPlayerItem class]]) {
             playeritem = (AVPlayerItem *)object;
         }
-        NSLog(@"KVO keyPath %@", keyPath);
+        // NSLog(@"KVO keyPath %@", keyPath);
         if ([playeritem isEqual:self.avPlayer.currentItem]) {
-            NSLog(@"KVO playeritem keyPath %@", keyPath);
-            if ([keyPath isEqualToString:@"status"]) {
-                // TODO check playeritem.status for AVPlayerItemStatusReadyToPlay, ...StatusUnknown, ...StatusFailed, do something
-            }
+            // NSLog(@"KVO playeritem keyPath %@", keyPath);
             if ([keyPath isEqualToString:@"timedMetadata"]) {
                 AVMetadataItem *metadataitem;
                 for (metadataitem in playeritem.timedMetadata) {
@@ -905,22 +895,13 @@ static NSString *audioStateObserverCtx = @"CordovaMediaAudioState";
                 }
             }
         }
-        if ([player isEqual:self.avPlayer]) {
-            NSLog(@"KVO player keyPath %@", keyPath);
-            if ([keyPath isEqualToString:@"status"]) {
-                // TODO
-            }
-        }
     }
 
 }
 - (void)dealloc
 {
     [[self soundCache] removeAllObjects];
-    [self.avPlayer removeObserver:self forKeyPath:@"status"];
     [self.avPlayer.currentItem removeObserver:self forKeyPath:@"timedMetadata"];
-    [self.avPlayer.currentItem removeObserver:self forKeyPath:@"status"];
-    [self.avPlayer.currentItem removeObserver:self forKeyPath:@"rate"];
 }
 
 - (void)onReset
@@ -1028,7 +1009,6 @@ static NSString *audioStateObserverCtx = @"CordovaMediaAudioState";
         NSString* jsString = [NSString stringWithFormat:@"%@(\"%@\",%d,%@);",
               @"cordova.require('cordova-plugin-media.Media').onStatus",
               mediaId, (int)what, param];
-        NSLog(@"onStatus %d %@", (int)what, param);
         [self.commandDelegate evalJs:jsString];
     }
 }
