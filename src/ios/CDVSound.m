@@ -271,6 +271,16 @@ BOOL keepAvAudioSessionAlwaysActive = NO;
                 avPlayer.automaticallyWaitsToMinimizeStalling = NO;
             }
             
+            // cobbled together from
+            //   https://stackoverflow.com/q/57510280
+            //   https://stackoverflow.com/a/59197508
+            //   https://github.com/robovm/apple-ios-samples/blob/master/AVTimedAnnotationWriterUsingCustomAnnotationMetadataforMovieWritingandPlayback/AVTimedAnnotationWriter/AAPLPlayerViewController.m
+            //   https://devstreaming-cdn.apple.com/videos/wwdc/2014/505xx5j7n7h3a1q/505/505_harnessing_metadata_in_audiovisual_media.pdf
+            AVPlayerItemMetadataOutput* metadataOutput = [[AVPlayerItemMetadataOutput alloc] initWithIdentifiers:nil];
+            // setDelegate:(id) bit, see https://stackoverflow.com/a/18854822/629238
+            [metadataOutput setDelegate:(id)self queue:dispatch_get_main_queue()];
+            [playerItem addOutput:metadataOutput];
+
             self.avPlayer = avPlayer;
         }
 
@@ -279,6 +289,16 @@ BOOL keepAvAudioSessionAlwaysActive = NO;
         CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
         [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
     }
+}
+
+- (void)metadataOutput:(AVPlayerItemMetadataOutput *)output didOutputTimedMetadataGroups:(NSArray *)groups fromPlayerItemTrack:(AVPlayerItemTrack *)track
+{
+    // we can just pick first item of first group, there is no more metadata for us (only ICY streamTitle)
+    AVTimedMetadataGroup* group = [groups firstObject];
+    AVMetadataItem* item = [group.items firstObject];
+    NSString* value = item.stringValue;
+    NSLog(@"metadataOutput %@", value);
+    [self onStatus:MEDIA_METADATA mediaId:self.currMediaId param:value];
 }
 
 - (void)setVolume:(CDVInvokedUrlCommand*)command
@@ -976,6 +996,12 @@ BOOL keepAvAudioSessionAlwaysActive = NO;
     } else { //old school evalJs way
         if (what==MEDIA_ERROR) {
             NSData* jsonData = [NSJSONSerialization dataWithJSONObject:param options:0 error:nil];
+            param=[[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
+        } else if (what==MEDIA_METADATA) {
+            // Need to escape the String.
+            // param is wrapped into an Array, because it can't be just a String...
+            // we could substring the [] away, but we'll handle that on the JS side.
+            NSData* jsonData = [NSJSONSerialization dataWithJSONObject:@[param] options:0 error:nil];
             param=[[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
         }
         NSString* jsString = [NSString stringWithFormat:@"%@(\"%@\",%d,%@);",

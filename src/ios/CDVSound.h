@@ -43,8 +43,9 @@ enum CDVMediaMsg {
     MEDIA_STATE = 1,
     MEDIA_DURATION = 2,
     MEDIA_POSITION = 3,
-    MEDIA_ERROR = 9,
-    MEDIA_META = 20
+    // we use MEDIA_METADATA like a MEDIA_STATE sometimes, so value should not collide
+    MEDIA_METADATA = 6,
+    MEDIA_ERROR = 9
 };
 typedef NSUInteger CDVMediaMsg;
 
@@ -82,7 +83,7 @@ typedef NSUInteger CDVMediaMsg;
 
 @end
 
-@interface CDVSound : CDVPlugin <AVAudioPlayerDelegate, AVAudioRecorderDelegate>
+@interface CDVSound : CDVPlugin <AVAudioPlayerDelegate, AVAudioRecorderDelegate, AVPlayerItemOutputPushDelegate>
 {
     NSMutableDictionary* soundCache;
     NSString* currMediaId;
