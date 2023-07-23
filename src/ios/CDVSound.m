@@ -29,8 +29,6 @@
 
 BOOL keepAvAudioSessionAlwaysActive = NO;
 
-static NSString *audioStateObserverCtx = @"CordovaMediaAudioState";
-
 @synthesize soundCache, avSession, currMediaId, statusCallbackId, avPlayer;
 
 -(void) pluginInitialize
@@ -273,7 +271,6 @@ static NSString *audioStateObserverCtx = @"CordovaMediaAudioState";
                 avPlayer.automaticallyWaitsToMinimizeStalling = NO;
             }
             
-            [avPlayer.currentItem addObserver:self forKeyPath:@"timedMetadata" options:0 context:&audioStateObserverCtx];
             self.avPlayer = avPlayer;
         }
 
@@ -874,34 +871,9 @@ static NSString *audioStateObserverCtx = @"CordovaMediaAudioState";
     [super onMemoryWarning];
 }
 
-- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary<NSKeyValueChangeKey,id> *)change context:(void *)context
-{
-    if (context == &audioStateObserverCtx) {
-        AVPlayerItem *playeritem = nil;
-        NSString *mediaId = self.currMediaId;
-        if ([object isKindOfClass:[AVPlayerItem class]]) {
-            playeritem = (AVPlayerItem *)object;
-        }
-        // NSLog(@"KVO keyPath %@", keyPath);
-        if ([playeritem isEqual:self.avPlayer.currentItem]) {
-            // NSLog(@"KVO playeritem keyPath %@", keyPath);
-            if ([keyPath isEqualToString:@"timedMetadata"]) {
-                AVMetadataItem *metadataitem;
-                for (metadataitem in playeritem.timedMetadata) {
-                    NSLog(@"timedMetadata %@", metadataitem.stringValue);
-                    // lazily preformatted/quoted for jseval FIXME
-                    NSString* paramv = [NSString stringWithFormat:@"\"%@\"", metadataitem.stringValue];
-                    [self onStatus:MEDIA_META mediaId:mediaId param:paramv];
-                }
-            }
-        }
-    }
-
-}
 - (void)dealloc
 {
     [[self soundCache] removeAllObjects];
-    [self.avPlayer.currentItem removeObserver:self forKeyPath:@"timedMetadata"];
 }
 
 - (void)onReset
