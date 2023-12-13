@@ -297,6 +297,11 @@ BOOL keepAvAudioSessionAlwaysActive = NO;
     AVTimedMetadataGroup* group = [groups firstObject];
     AVMetadataItem* item = [group.items firstObject];
     NSString* value = item.stringValue;
+    // prevent passing on corrupt/invalid data to onStatus
+    if (value == nil) {
+        NSLog(@"metadataOutput nil");
+        return;
+    }
     NSLog(@"metadataOutput %@", value);
     [self onStatus:MEDIA_METADATA mediaId:self.currMediaId param:value];
 }
@@ -998,6 +1003,12 @@ BOOL keepAvAudioSessionAlwaysActive = NO;
             NSData* jsonData = [NSJSONSerialization dataWithJSONObject:param options:0 error:nil];
             param=[[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
         } else if (what==MEDIA_METADATA) {
+            // Sometimes crashed with NSInvalidArgumentException / attempt to insert nil object from objects[0]
+            // caused by specific metadata sent at that moment. It reproduced spontaneously, but I was unable,
+            // hence we check for invalid/unserializable data first.
+            if (param == nil || ![NSJSONSerialization isValidJSONObject:@[param]]) {
+                param = @"Artist - Track";
+            }
             // Need to escape the String.
             // param is wrapped into an Array, because it can't be just a String...
             // we could substring the [] away, but we'll handle that on the JS side.
