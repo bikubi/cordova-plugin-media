@@ -1003,11 +1003,20 @@ BOOL keepAvAudioSessionAlwaysActive = NO;
             NSData* jsonData = [NSJSONSerialization dataWithJSONObject:param options:0 error:nil];
             param=[[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
         } else if (what==MEDIA_METADATA) {
-            // Sometimes crashed with NSInvalidArgumentException / attempt to insert nil object from objects[0]
-            // caused by specific metadata sent at that moment. It reproduced spontaneously, but I was unable,
-            // hence we check for invalid/unserializable data first.
-            if (param == nil || ![NSJSONSerialization isValidJSONObject:@[param]]) {
-                param = @"Artist - Track";
+            // param can be nil sometimes, somehow corrupt icy metadata?
+            if (param==nil) {
+                NSLog(@"onStatus param was nil, bailing");
+                return;
+            }
+            // we double check
+            if (![param isKindOfClass:[NSString class]]) {
+                NSLog(@"onStatus param was not string, bailing");
+                return;
+            }
+            if (![NSJSONSerialization isValidJSONObject:@[param]]) {
+                // and this should basically never happen
+                NSLog(@"onStatus param did not make valid json, bailing");
+                return;
             }
             // Need to escape the String.
             // param is wrapped into an Array, because it can't be just a String...
