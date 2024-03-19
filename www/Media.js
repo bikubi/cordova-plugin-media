@@ -246,7 +246,7 @@ Media.prototype.getCurrentAmplitude = function (success, fail) {
  */
 Media.onStatus = function (id, msgType, value) {
     var media = mediaObjects[id];
-    console.log('### Media.js onStatus', id, msgType, value);
+    // console.log('Media.js onStatus', id, msgType, value);
 
     if (media) {
         switch (msgType) {
@@ -275,6 +275,7 @@ Media.onStatus = function (id, msgType, value) {
             if (media.statusCallback) {
                 // on iOS we get the String wrapped in an Array
                 if (typeof value === 'object' && value.length) value = value[0];
+                // console.log('Cordova Media metadata', value);
                 media.statusCallback(Media.MEDIA_METADATA, value);
             }
             break;
@@ -292,7 +293,9 @@ Media.onStatus = function (id, msgType, value) {
 module.exports = Media;
 
 function onMessageFromNative (msg) {
+    // console.log('Media.js onMessageFromNative');
     if (msg.action === 'status') {
+        // console.log('Media.js onMessageFromNative -> onStatus');
         Media.onStatus(msg.status.id, msg.status.msgType, msg.status.value);
     } else {
         throw new Error('Unknown media action' + msg.action);
